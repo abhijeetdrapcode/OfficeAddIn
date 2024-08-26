@@ -83,7 +83,7 @@ async function selectParagraph() {
 
     if (paragraphs.items.length > 0) {
       const paragraph = paragraphs.items[0];
-      // paragraph.select();
+      paragraph.select();
 
       paragraph.load("text");
       await context.sync();
@@ -140,7 +140,6 @@ function fallbackCopyToClipboard(text) {
 
   // Append the textarea to the body
   document.body.appendChild(textArea);
-  select();
 
   // Select the text inside the textarea
   textArea.focus();
@@ -151,9 +150,11 @@ function fallbackCopyToClipboard(text) {
     const successful = document.execCommand("copy");
     const msg = successful ? "successful" : "unsuccessful";
     console.log(`Fallback: Copying text command was ${msg}`);
+    alert("Text copied to clipboard using fallback method!");
   } catch (err) {
     console.error("Fallback: Could not copy text: ", err);
   }
 
+  // Remove the textarea from the document
   document.body.removeChild(textArea);
 }
