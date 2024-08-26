@@ -1,0 +1,68 @@
+/* General Reset and Full-Height Setup */
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f4f4; /* Slightly off-white background for a softer look */
+    color: #333; /* Default text color */
+}
+
+/* Container for Centered Content */
+.container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    text-align: center; /* Center text within container */
+}
+
+/* Heading Styles */
+h1 {
+    font-size: 28px; /* Slightly larger font size for emphasis */
+    color: #222; /* Darker color for better contrast */
+    margin-bottom: 30px; /* More spacing below the heading */
+}
+
+/* Button Styling */
+button {
+    background-color: #0078d7; /* Primary button color */
+    color: white;
+    border: none;
+    padding: 12px 24px; /* Increased padding for a more substantial look */
+    margin: 8px; /* Margin between buttons for separation */
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px; /* Slightly more rounded corners */
+    transition: background-color 0.3s ease, transform 0.2s ease; /* Added transform transition */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+/* Button Hover and Focus States */
+button:hover,
+button:focus {
+    background-color: #005a9e; /* Darker shade for hover/focus state */
+    transform: translateY(-2px); /* Slight lift effect */
+}
+
+/* List Styling */
+ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* List Item Styling */
+li {
+    padding-bottom: 12px; /* Increased padding for better separation */
+    font-size: 16px; /* Consistent font size for list items */
+}
+
+/* Bold Text */
+b {
+    font-weight: 600; /* Slightly lighter weight for a modern look */
+}
