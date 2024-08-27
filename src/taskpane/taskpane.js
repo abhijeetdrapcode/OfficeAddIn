@@ -1,140 +1,151 @@
-let addinClipboard = "";
-let currentNumberIndex = 0;
+let extractedData = [];
+let currentIndex = 0;
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Word) {
-    document.getElementById("selectNumberingButton").onclick = selectNumbering;
-    document.getElementById("selectParagraphButton").onclick = selectParagraph;
+    document.getElementById("saveNumbersBtn").onclick = saveHierarchicalNumberedParagraphs;
   }
 });
 
-async function selectNumbering() {
+async function saveHierarchicalNumberedParagraphs() {
+  // Remove the button after being clicked
+  document.getElementById("saveNumbersBtn").style.display = "none";
+
   await Word.run(async (context) => {
     const selection = context.document.getSelection();
     const paragraphs = selection.paragraphs;
-    paragraphs.load("items");
+    paragraphs.load(["text"]);
 
     await context.sync();
 
-    let found = false;
+    extractedData = [];
+    currentIndex = 0;
+    let currentParentNumbering = null;
+    let currentSubNumbering = null;
 
-    for (let i = 0; i < paragraphs.items.length; i++) {
-      const paragraph = paragraphs.items[i];
-      paragraph.load("text");
+    paragraphs.items.forEach((paragraph) => {
+      const paragraphText = paragraph.text.trim();
 
-      await context.sync();
+      const parentNumberingMatch = paragraphText.match(/^(\d+(\.\d+)*)(.*)$/);
+      const subNumberingMatch = paragraphText.match(/^([a-zA-Z])\)\s*(.*)$/);
+      const subSubNumberingMatch = paragraphText.match(/^\((\w+)\)\s*(.*)$/);
 
-      const numberings = extractAllNumberings(paragraph.text);
-
-      if (numberings.length > 0) {
-        if (currentNumberIndex >= numberings.length) {
-          currentNumberIndex = 0;
-        }
-
-        const numbering = numberings[currentNumberIndex];
-        const startIndex = paragraph.text.indexOf(numbering, paragraph.text.indexOf(numbering) + currentNumberIndex);
-        const endIndex = startIndex + numbering.length;
-
-        const range = paragraph.getRange();
-        const numberingRange = range.expandTo(startIndex, endIndex);
-
-        // numberingRange.font.highlightColor = "#FFFFFF";
-
-        numberingRange.select();
-
-        addinClipboard = numbering;
-        console.log(`Numbering selected and copied to add-in's clipboard: ${numbering}`);
-
-        const selectedNumberElement = document.getElementById("selectedNumber");
-        selectedNumberElement.textContent = ` ${addinClipboard}`;
-
-        fallbackCopyToClipboard(addinClipboard);
-
-        found = true;
-        currentNumberIndex++;
-        break;
+      if (parentNumberingMatch) {
+        currentParentNumbering = parentNumberingMatch[1];
+        currentSubNumbering = null;
+        const paragraphContent = parentNumberingMatch[3].trim();
+        extractedData.push({ numbering: currentParentNumbering, paragraphContent });
+      } else if (subNumberingMatch && currentParentNumbering) {
+        const subNumbering = subNumberingMatch[1];
+        currentSubNumbering = `${currentParentNumbering}.${subNumbering}`;
+        const paragraphContent = subNumberingMatch[2];
+        extractedData.push({ numbering: currentSubNumbering, paragraphContent });
+      } else if (subSubNumberingMatch && currentSubNumbering) {
+        const subSubNumbering = subSubNumberingMatch[1];
+        const paragraphContent = subSubNumberingMatch[2];
+        const combinedNumbering = `${currentSubNumbering}.${subSubNumbering}`;
+        extractedData.push({ numbering: combinedNumbering, paragraphContent });
+      } else {
+        extractedData.push({ numbering: null, paragraphContent: paragraphText });
       }
-    }
+    });
 
-    if (!found) {
-      console.log("No numbering found in the current paragraph.");
-      const selectedNumberElement = document.getElementById("selectedNumber");
-      selectedNumberElement.textContent = " None";
-    }
-
-    await context.sync();
-  }).catch(errorHandler);
+    populateDropdown();
+    displayCurrentParagraph();
+    showCloseButton();
+  });
 }
 
-async function selectParagraph() {
-  await Word.run(async (context) => {
-    const selection = context.document.getSelection();
-    const paragraphs = selection.paragraphs;
-    paragraphs.load("items");
+function populateDropdown() {
+  const container = document.querySelector(".container");
+  const dropdown = document.createElement("select");
+  dropdown.id = "paragraphDropdown";
+  dropdown.onchange = () => {
+    currentIndex = dropdown.selectedIndex;
+    displayCurrentParagraph();
+  };
 
-    await context.sync();
+  extractedData.forEach((item, index) => {
+    const option = document.createElement("option");
+    option.value = index;
+    option.text = item.numbering || "No Numbering";
+    dropdown.appendChild(option);
+  });
 
-    if (paragraphs.items.length > 0) {
-      const paragraph = paragraphs.items[0];
-      paragraph.select();
-
-      paragraph.load("text");
-      await context.sync();
-
-      addinClipboard = paragraph.text;
-      console.log("Paragraph selected and copied to add-in's clipboard.");
-
-      const selectedParagraphElement = document.getElementById("selectedNumber");
-      selectedParagraphElement.textContent = `${truncateText(addinClipboard, 10)}`;
-
-      fallbackCopyToClipboard(addinClipboard);
-    } else {
-      console.log("No paragraph found at the current cursor position.");
-    }
-
-    await context.sync();
-  }).catch(errorHandler);
+  container.appendChild(dropdown);
 }
 
-function extractAllNumberings(text) {
-  const matches = text.match(/\d+(\.\d+)*|\d+/g);
-  return matches || [];
-}
-
-function truncateText(text, wordLimit) {
-  const words = text.split(" ");
-  if (words.length > wordLimit) {
-    return words.slice(0, wordLimit).join(" ") + "...";
-  }
-  return text;
-}
-
-function errorHandler(error) {
-  console.error("Error: " + error);
-  if (error instanceof OfficeExtension.Error) {
-    console.error("Debug info: " + JSON.stringify(error.debugInfo));
-  }
-}
-
-function fallbackCopyToClipboard(text) {
-  const textArea = document.createElement("textarea");
-  textArea.value = text;
-
-  textArea.style.position = "fixed";
-  textArea.style.opacity = 0;
-
-  document.body.appendChild(textArea);
-
-  textArea.focus();
-  textArea.select();
-
-  try {
-    const successful = document.execCommand("copy");
-    const msg = successful ? "successful" : "unsuccessful";
-    console.log(`Fallback: Copying text command was ${msg}`);
-  } catch (err) {
-    console.error("Fallback: Could not copy text: ", err);
+function displayCurrentParagraph() {
+  const container = document.querySelector(".container");
+  const existingContent = document.querySelector(".content");
+  if (existingContent) {
+    existingContent.remove();
   }
 
-  document.body.removeChild(textArea);
+  const contentContainer = document.createElement("div");
+  contentContainer.className = "content";
+
+  if (currentIndex < extractedData.length) {
+    const item = extractedData[currentIndex];
+
+    const contentWrapper = document.createElement("div");
+    contentWrapper.className = "content-wrapper";
+
+    const numberingElement = document.createElement("div");
+    numberingElement.className = "numbering-text";
+    numberingElement.textContent = item.numbering || "";
+
+    const textElement = document.createElement("div");
+    textElement.className = "paragraph-text";
+    const truncatedText =
+      item.paragraphContent.length > 50 ? item.paragraphContent.substring(0, 50) + "..." : item.paragraphContent;
+    textElement.textContent = truncatedText;
+
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "button-container";
+
+    const copyNumberButton = document.createElement("button");
+    copyNumberButton.textContent = "Copy Number";
+    copyNumberButton.className = "copy-buttons";
+    copyNumberButton.onclick = () => copyToClipboard(item.numbering || "");
+
+    const copyContentButton = document.createElement("button");
+    copyContentButton.textContent = "Copy Content";
+    copyContentButton.className = "copy-buttons";
+    copyContentButton.onclick = () => copyToClipboard(item.paragraphContent);
+
+    buttonContainer.appendChild(copyNumberButton);
+    buttonContainer.appendChild(copyContentButton);
+
+    contentWrapper.appendChild(numberingElement);
+    contentWrapper.appendChild(textElement);
+
+    contentContainer.appendChild(contentWrapper);
+    contentContainer.appendChild(buttonContainer);
+
+    container.appendChild(contentContainer);
+  }
+}
+
+function showCloseButton() {
+  const container = document.querySelector(".container");
+  const closeButton = document.createElement("button");
+  closeButton.textContent = "Close";
+  closeButton.onclick = resetView;
+  container.appendChild(closeButton);
+}
+
+function copyToClipboard(text) {
+  const tempTextarea = document.createElement("textarea");
+  tempTextarea.value = text;
+  document.body.appendChild(tempTextarea);
+  tempTextarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(tempTextarea);
+}
+
+function resetView() {
+  const container = document.querySelector(".container");
+  container.innerHTML = '<button id="saveNumbersBtn">Save Numbered Paragraph</button>';
+  document.getElementById("saveNumbersBtn").onclick = saveHierarchicalNumberedParagraphs;
 }
